@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ranch-ht-aab · HT Activity Assignment Board</title>
+<style>
+:root{--bg:#f4f6f2;--card:#fff;--ink:#1d2a1f;--mut:#667366;--line:#d9dfd5;--acc:#2e5e3e;--on:#fff;
+--s-avail:#e9ede6;--s-pre:#f6e3a1;--s-act:#8fcf9a;--s-rdy:#f5b04c;--s-hv:#e8803a;--s-done:#b8a9d4;--s-hold:#e48f8f;
+--q-must:#e5675d;--q-att:#f0b94d;--q-rout:#8fcf9a;--q-prop:#7fb2e5;--warn:#c0392b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111812;--card:#1b241c;--ink:#e6efe6;--mut:#9aaa9b;--line:#2f3b30;--acc:#6fbf86;--on:#0c140d;--s-avail:#26302a;--s-pre:#6b5d22;--s-act:#2f6b3f;--s-rdy:#9a6419;--s-hv:#a44f17;--s-done:#4d4270;--s-hold:#7a3434}}
+:root[data-theme="dark"]{--bg:#111812;--card:#1b241c;--ink:#e6efe6;--mut:#9aaa9b;--line:#2f3b30;--acc:#6fbf86;--on:#0c140d;--s-avail:#26302a;--s-pre:#6b5d22;--s-act:#2f6b3f;--s-rdy:#9a6419;--s-hv:#a44f17;--s-done:#4d4270;--s-hold:#7a3434}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 12px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+h1{font-size:16px;margin:0;flex:1 1 200px}h1 small{display:block;font-weight:400;color:var(--mut);font-size:11px}
+button,select,input,textarea{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+button{cursor:pointer}button.p{background:var(--acc);color:var(--on);border-color:var(--acc)}button.d{border-color:var(--warn);color:var(--warn)}button.on{background:var(--acc);color:var(--on)}button:disabled{opacity:.5}
+.pill{padding:3px 9px;border-radius:99px;font-size:11px;border:1px solid var(--line)}.pill.online{background:#2e7d32;color:#fff}.pill.sync{background:#1f5f99;color:#fff}.pill.none{background:#555;color:#fff}#rfi{display:inline-block}#rfi.spin{animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}.pill.offline,.pill.error{background:var(--warn);color:#fff}
+main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:12px;padding:12px}
+@media(max-width:820px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}.mut{color:var(--mut);font-size:12px}
+.chip{padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;color:#1d2a1f}.HIGH{background:var(--q-must)}.MEDIUM{background:var(--q-att)}.LOW{background:var(--q-rout)}
+svg{width:100%;height:auto;display:block}.bed{cursor:pointer;stroke:var(--line);stroke-width:1}.bed.sel{stroke:var(--ink);stroke-width:3}svg text{fill:var(--ink);font-size:10px;pointer-events:none}
+.legend span{display:inline-flex;align-items:center;gap:4px;margin-right:8px;font-size:11px}.legend i{width:12px;height:12px;border-radius:3px;display:inline-block;border:1px solid var(--line)}
+.tabs{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}.item{border:1px solid var(--line);border-radius:10px;padding:8px;margin-bottom:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}dl{margin:0}dt{color:var(--mut);font-size:11px}dd{margin:0 0 6px;font-weight:600}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;display:none;z-index:20}
+#modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;z-index:15;padding:16px}#modal .card{width:min(420px,100%)}
+#login{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:30;padding:16px}#login .card{width:min(360px,100%)}#login select,#login input{width:100%;margin-bottom:8px;font-size:16px}#login .err{color:var(--warn);font-size:12px;min-height:16px;margin-bottom:6px}
+#modal .card.wide{width:min(720px,100%);max-height:80vh;overflow:auto}table.lg{width:100%;border-collapse:collapse;font-size:11px}table.lg td,table.lg th{border-bottom:1px solid var(--line);padding:3px 4px;text-align:left;vertical-align:top}
+</style></head><body>
+<header>
+<h1>ranch-ht-aab<small>VPOS-HT · Activity Assignment Board · 6 bays × 6 beds</small></h1>
+<span id="net" class="pill none" data-act="net" style="cursor:pointer">○ Not connected</span><button id="rf" data-act="refresh" title="Refresh now"><span id="rfi">⟳</span></button><select id="auto" data-act="auto" title="Auto-refresh"><option value="0">Auto: off</option><option value="15">Auto: 15 s</option><option value="30">Auto: 30 s</option><option value="60">Auto: 1 min</option><option value="300">Auto: 5 min</option></select>
+<button id="vStage" class="on" data-act="view" data-v="stage">Current Stage</button><button id="vQueue" data-act="view" data-v="queue">Queue</button>
+<button data-act="plan">Season Planning</button><button data-act="theme" title="Toggle theme">◐</button><button data-act="connect" title="Backend connection">⚙</button><button id="bLog" data-act="loglog" title="Login log" style="display:none">🔐</button><span id="who" class="pill online" style="display:none"></span><button id="bOut" data-act="logout" style="display:none">Logout</button>
+</header>
+<main>
+<section class="card"><div class="row" id="filters"></div><svg id="map" viewBox="0 0 440 380" role="img" aria-label="High tunnel bed map"></svg><div class="legend" id="legend"></div></section>
+<section class="card"><div class="tabs"><button data-act="side" data-s="bed">Bed</button><button data-act="side" data-s="queue" id="qTab">Assignment Queue</button><button data-act="side" data-s="plan">Planning</button></div><div id="side"></div></section>
+</main>
+<div id="login"><div class="card"><b style="font-size:16px">ranch-ht-aab</b><div class="mut" style="margin:2px 0 12px">Sign in to the Activity Assignment Board</div><div id="lBody"></div></div></div>
+<div id="toast"></div><div id="modal"><div class="card" id="mbody"></div></div>
+<script>
+const DEFAULT_URL='https://script.google.com/macros/s/AKfycbxOW7gq6C_jkWB5fVaFsO8sZmCwgsnPOU353own_8i-bPARdx0MGBKRjNO7lAPhZApTVw/exec';
+let WEB_APP_URL=DEFAULT_URL,SESS='',ME=null;try{WEB_APP_URL=localStorage.getItem('aab-url')||DEFAULT_URL;SESS=localStorage.getItem('aab-sess')||''}catch(e){}  // URL can be changed via the ⚙ button
+const HAS_GSR=typeof google!=='undefined'&&!!(google.script&&google.script.run);   // true when served by Apps Script (doGet)
+const gsr=p=>new Promise((ok,no)=>google.script.run.withSuccessHandler(ok).withFailureHandler(e=>no(new Error(e.message||e))).apiCall(JSON.stringify(p)));
+const REQUEST_TIMEOUT_MS=20000, N_BLOCKS=6, BEDS_PER_ROW=6, TOTAL_BEDS=36, KEY='ranch-ht-aab-v1';
+const $=s=>document.querySelector(s), today=()=>new Date().toISOString().slice(0,10);
+const CROPS={SUK:['Sukuma Wiki',50,70],KAL:['Kale',55,75],CHD:['Swiss Chard',45,60],SPI:['Spinach',35,45],CAR:['Carrots',65,80],BRO:['Broccoli',60,80],CAB:['Cabbage',70,90],LET:['Lettuce',45,60],MUS:['Mustard Greens',35,45],BET:['Beets',55,70],ONI:['Onions',90,120],COL:['Collard Greens',60,80]};
+const CATS={'Soil & Bed Prep':['Bed shaping','Compost application','Drip line check (15 PSI)'],'Crop Maintenance':['Weeding','Irrigation check','Pest scouting','Row cover / vent'],'Harvest Operations':['Harvest','Grade & pack','Crate labeling (QR)'],'Post-Harvest & Sanitation':['Residue clearing','Bed sanitation','Verify bed ready']};
+let WORKERS=['Amani','Baraka','Chebet','Dawa','Eko'];
+const STAGE_COL={AVAILABLE:'--s-avail',RESERVED:'--s-pre',PRE_PLANTING:'--s-pre',ACTIVE:'--s-act',HARVEST_READY:'--s-rdy',HARVESTING:'--s-hv',COMPLETED:'--s-done',SANITATION:'--s-hold',HOLD:'--s-hold'};
+const Q_COL={MUST_DO:'--q-must',ATTENTION:'--q-att',ROUTINE:'--q-rout',PROPOSED:'--q-prop'};
+let ui={view:'stage',filter:'ALL',sel:null,tab:'overview',side:'queue',checked:{}}, db={beds:{},cohorts:[],tasks:[],exceptions:[],proposals:[],plans:[]}, loaded=false, wb='', lastOk=0, syncSt={state:'none',msg:''};
+const bid=(b,n)=>`HT-B${b}-${String(n).padStart(2,'0')}`;
+function parseLoc(id){const s=String(id).trim().toUpperCase();let m=/^(?:HT-)?(?:B|BLK|BLOCK)\s*(\d+)[-_ ](\d+)$/.exec(s);if(m)return{b:+m[1],n:+m[2]};m=/^(?:HT|ZONE\s*)(\d)$/.exec(s);return m?{b:+m[1],n:0}:null}
+const cohortOn=bed=>db.cohorts.find(c=>c.bed===bed&&c.status!=='RELEASED');
+const isFree=b=>db.beds[b]&&db.beds[b].status==='AVAILABLE'&&!cohortOn(b)&&!db.proposals.some(p=>p.status==='PENDING'&&p.bed===b);
+let autoSec=30,timer=null,inflight=null;try{const v=localStorage.getItem('aab-auto');if(v!==null)autoSec=+v}catch(e){}
+function setStatus(state,msg){syncSt={state,msg:msg||''};renderPill()}
+function renderPill(){const e=$('#net');if(!e)return;const st=syncSt.state,t=lastOk?new Date(lastOk).toLocaleTimeString([],{hour12:false}):'',age=lastOk?(Date.now()-lastOk)/1000:0,stale=st==='ok'&&autoSec>0&&age>autoSec*2+10;
+ const M={none:['none','○ Not connected — tap to connect'],login:['none','🔒 Sign in required'],sync:['sync','◌ Syncing…'],ok:[stale?'error':'online',(stale?'▲ Stale · ':'● Connected · ')+(wb||'workbook')+' · synced '+t],offline:['offline','○ Offline — retrying'],error:['error','▲ '+(syncSt.msg||'Sync error')+' — tap to retry']}[st];
+ e.className='pill '+M[0];e.textContent=M[1];$('#rfi').classList.toggle('spin',st==='sync')}
+function applyData(d){if(d.me){ME=d.me;renderWho()}db=d;loaded=true;if(d.workers&&d.workers.length)WORKERS=d.workers;if(d.meta)wb=d.meta.workbook;lastOk=Date.now();setStatus('ok');render()}
+async function api(action,data={},o={}){
+ if(!HAS_GSR&&!WEB_APP_URL){setStatus('none');throw new Error('Not connected — tap ⚙')}
+ if(!o.soft)setStatus('sync');
+ const ac=new AbortController(),t=setTimeout(()=>ac.abort(),action==='getToday'?REQUEST_TIMEOUT_MS:REQUEST_TIMEOUT_MS*2);
+ try{let j;const body={action,session:SESS,...data};if(HAS_GSR)j=JSON.parse(await gsr(body));else{const r=await fetch(WEB_APP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:ac.signal});j=await r.json()}
+  if(!j.ok){const er=new Error(j.error||'Server error');er.srv=true;er.auth=!!j.auth;throw er}return j}
+ catch(e){if(e.auth)endSession('Session expired — please sign in again');else if(e.srv&&o.soft)setStatus(ME?'ok':'login');else setStatus(navigator.onLine?'error':'offline',e.name==='AbortError'?'Timed out':e.message);throw e}finally{clearTimeout(t)}}
+function loadToday(){if(inflight)return inflight;inflight=api('getToday').then(r=>applyData(r.data)).catch(()=>{}).finally(()=>{inflight=null});return inflight}
+async function act(action,data,msg){try{const r=await api(action,data);applyData(r.data);if(msg)toast(msg)}catch(e){toast(e.message)}}
+function setAuto(n){autoSec=n;clearInterval(timer);if(n>0)timer=setInterval(()=>{if(ME&&!document.hidden&&$('#modal').style.display!=='flex')loadToday()},n*1000);try{localStorage.setItem('aab-auto',n)}catch(e){}}
+function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2600)}
+// ---- auth
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const can=a=>!!ME&&(ME.perms.includes('*')||ME.perms.includes(a)), mine=x=>!!ME&&(ME.perms.includes('*')||x.worker===ME.name);
+let LU=[],LERR='',LBUSY=false;
+function renderWho(){const w=$('#who'),o=$('#bOut'),l=$('#bLog');if(!w)return;w.style.display=o.style.display=ME?'':'none';if(ME)w.textContent=ME.name+' · '+ME.role;l.style.display=can('getLoginLog')?'':'none'}
+function showLogin(msg){LERR=msg||'';$('#login').style.display='flex';setStatus(HAS_GSR||WEB_APP_URL?'login':'none');renderLogin();if(!LU.length&&(HAS_GSR||WEB_APP_URL))loadUsers()}
+function hideLogin(){$('#login').style.display='none'}
+async function loadUsers(){try{const r=await api('listUsers',{},{soft:true});LU=r.users||[];LERR='';setStatus('login')}catch(e){LERR='Could not reach the server: '+e.message}renderLogin()}
+function renderLogin(){const b=$('#lBody');if(!b)return;let last='';try{last=localStorage.getItem('aab-last')||''}catch(e){}const cur=$('#lUser')?$('#lUser').value:last;
+ b.innerHTML=(LU.length?`<select id="lUser">${LU.map(u=>`<option value="${esc(u.id)}" ${u.id===cur?'selected':''}>${esc(u.name)}</option>`).join('')}</select>`:`<p class="mut">${HAS_GSR||WEB_APP_URL?'Loading users…':'Not connected.'}</p>`)+`<input id="lPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" ${LU.length?'':'disabled'}><div class="err">${esc(LERR)}</div><button class="p" data-act="doLogin" style="width:100%" ${LU.length&&!LBUSY?'':'disabled'}>${LBUSY?'Signing in…':'Sign in'}</button><div class="row" style="margin:10px 0 0;justify-content:space-between"><button data-act="connect">⚙ Backend</button>${LU.length?'':'<button data-act="retryUsers">Retry</button>'}</div>`;
+ if(LERR&&$('#lPin')&&!LBUSY)$('#lPin').focus()}
+async function doLogin(){if(LBUSY)return;const id=$('#lUser')&&$('#lUser').value,pin=$('#lPin')&&$('#lPin').value;if(!id||!pin){LERR='Select your name and enter your PIN';return renderLogin()}
+ LBUSY=true;LERR='';renderLogin();
+ try{const r=await api('login',{userId:id,pin,ua:navigator.userAgent.slice(0,160)},{soft:true});SESS=r.session;try{localStorage.setItem('aab-sess',SESS);localStorage.setItem('aab-last',id)}catch(e){}LBUSY=false;hideLogin();applyData(r.data);toast('Welcome, '+r.user.name)}
+ catch(e){LBUSY=false;LERR=e.message;renderLogin()}}
+function endSession(msg){SESS='';ME=null;loaded=false;db={beds:{},cohorts:[],tasks:[],exceptions:[],proposals:[],plans:[]};ui.sel=null;try{localStorage.removeItem('aab-sess')}catch(e){}$('#modal').style.display='none';renderWho();render();showLogin(msg)}
+async function logout(){try{await api('logout',{},{soft:true})}catch(e){}endSession('Signed out')}
+async function showLog(){try{const r=await api('getLoginLog',{},{soft:true});modal('Login log (latest '+r.log.length+')',`<table class="lg"><tr><th>Time</th><th>User</th><th>Event</th><th>Detail</th></tr>${r.log.map(x=>`<tr><td>${esc(x.at)}</td><td>${esc(x.name||x.id)}</td><td>${esc(x.event)}</td><td>${esc(x.detail)}${x.client?` <span class="mut">${esc(String(x.client).slice(0,40))}</span>`:''}</td></tr>`).join('')}</table>`,()=>true,true)}catch(e){toast(e.message)}}
+// ---- derived bed info
+function info(id){const bed=db.beds[id]||{id,status:'AVAILABLE'},c=cohortOn(id),ex=db.exceptions.filter(e=>e.bed===id&&e.open),tk=db.tasks.filter(t=>t.bed===id&&t.status==='RUNNING'),pr=db.proposals.find(p=>p.status==='PENDING'&&p.bed===id);
+ const stage=c?c.status:bed.status;let q='';
+ if(ex.some(e=>e.sev==='HIGH')||stage==='HARVEST_READY')q='MUST_DO';else if(ex.length||(c&&['PENDING','FAIL'].includes(c.vest))||stage==='COMPLETED')q='ATTENTION';else if(pr)q='PROPOSED';else if(c)q='ROUTINE';
+ return{bed,c,ex,tk,pr,stage,q}}
+const FILTERS={ALL:()=>true,OCCUPIED:i=>i.c&&i.stage!=='COMPLETED',PROPOSED:i=>!!i.pr,AVAILABLE:i=>i.stage==='AVAILABLE'&&!i.pr,UNVERIFIED:i=>i.c&&['PENDING','FAIL'].includes(i.c.vest),POST_HARVEST:i=>i.stage==='COMPLETED',EXCEPTION:i=>i.ex.length>0};
+// ---- render
+function render(){if(!db)return;renderFilters();renderMap();renderSide();$('#vStage').classList.toggle('on',ui.view==='stage');$('#vQueue').classList.toggle('on',ui.view==='queue');
+ const n=db.proposals.filter(p=>p.status==='PENDING').length;$('#qTab').textContent='Assignment Queue'+(n?` (${n})`:'')}
+function renderFilters(){$('#filters').innerHTML=Object.keys(FILTERS).map(f=>`<button class="${ui.filter===f?'on':''}" data-act="filter" data-f="${f}">${f.replace('_',' ')}</button>`).join('')}
+function renderMap(){let s='';
+ for(let b=1;b<=N_BLOCKS;b++){const y=14+(b-1)*60;s+=`<text x="4" y="${y+26}" style="font-size:12px;font-weight:700">HT${b}</text>`;
+  for(let n=1;n<=BEDS_PER_ROW;n++){const id=bid(b,n),i=info(id),x=44+(n-1)*66,col=ui.view==='stage'?STAGE_COL[i.stage]:(Q_COL[i.q]||'--s-avail'),dim=FILTERS[ui.filter](i)?1:.2;
+   s+=`<g data-act="bed" data-id="${id}" opacity="${dim}"><rect class="bed ${ui.sel===id?'sel':''}" x="${x}" y="${y}" width="60" height="50" rx="7" fill="var(${col})"/><text x="${x+30}" y="${y+20}" text-anchor="middle" style="font-weight:700">${n.toString().padStart(2,'0')}</text><text x="${x+30}" y="${y+34}" text-anchor="middle" style="font-size:8px">${i.c?i.c.crop:i.pr?'▸'+i.pr.crop:''}</text>`;
+   if(i.tk.length)s+=`<circle cx="${x+9}" cy="${y+9}" r="5" fill="#2f7fd0"/>`;if(i.ex.length)s+=`<circle cx="${x+51}" cy="${y+9}" r="6" fill="#c0392b"/><text x="${x+51}" y="${y+12}" text-anchor="middle" style="fill:#fff;font-weight:700">!</text>`;if(i.stage==='HARVEST_READY')s+=`<text x="${x+9}" y="${y+45}" style="font-size:11px">✂</text>`;s+='</g>'}}
+ $('#map').innerHTML=s;const L=ui.view==='stage'?[['AVAILABLE','Available'],['PRE_PLANTING','Pre-plant/Reserved'],['ACTIVE','Growing'],['HARVEST_READY','Harvest ready'],['HARVESTING','Harvesting'],['COMPLETED','Post-harvest'],['HOLD','Hold/Sanitation']].map(a=>[STAGE_COL[a[0]],a[1]]):Object.entries(Q_COL).map(([k,v])=>[v,k.replace('_',' ')]);
+ $('#legend').innerHTML=L.map(a=>`<span><i style="background:var(${a[0]})"></i>${a[1]}</span>`).join('')+'<span>🔵 worker active · 🔴 exception · ✂ harvest ready</span>'}
+function renderSide(){const el=$('#side');if(!loaded){const k=syncSt.state;return el.innerHTML=k==='sync'?'<p class="mut">Connecting to the workbook…</p>':k==='login'?'<p class="mut">Sign in to view the board.</p>':`<p class="mut">${k==='none'?'Not connected to the workbook.':'Could not load the workbook: '+(syncSt.msg||k)}</p><button class="p" data-act="${k==='none'?'connect':'refresh'}">${k==='none'?'Connect':'Retry'}</button>`}
+ if(ui.side==='queue')return el.innerHTML=queueHTML();if(ui.side==='plan')return el.innerHTML=planHTML();
+ if(!ui.sel)return el.innerHTML='<p class="mut">Tap a bed on the map to open its profile and dispatch activities.</p>';
+ if(ui.tab==='dispatch'&&!can('dispatch'))ui.tab='overview';const i=info(ui.sel),tabs=['overview',...(can('dispatch')?['dispatch']:[]),'tasks','exceptions'];
+ el.innerHTML=`<div class="row"><b>${ui.sel}</b><span class="chip" style="background:var(${STAGE_COL[i.stage]})">${i.stage}</span></div><div class="tabs">${tabs.map(t=>`<button class="${ui.tab===t?'on':''}" data-act="tab" data-t="${t}">${t}${t==='exceptions'&&i.ex.length?' ('+i.ex.length+')':''}</button>`).join('')}</div>`+bedTab(i)}
+function bedTab(i){const c=i.c;
+ if(ui.tab==='overview'){if(!c)return`<p class="mut">No cohort on this bed (${i.bed.status}).${i.pr?` Proposed: <b>${i.pr.cohort}</b>.`:''}</p>`;const cr=CROPS[c.crop]||['',0,0],d=n=>{if(!c.dob)return'—';const x=new Date(c.dob);x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)};
+  return`<dl class="grid2"><div><dt>Cohort</dt><dd>${c.id}</dd></div><div><dt>Crop</dt><dd>${c.cropName||cr[0]}</dd></div><div><dt>Status</dt><dd>${c.status}</dd></div><div><dt>DOB</dt><dd>${c.dob}</dd></div><div><dt>Harvest window</dt><dd>${d(cr[1])} → ${d(cr[2])}</dd></div><div><dt>Vestibule (24 h)</dt><dd>${c.vest}</dd></div><div><dt>Target cases</dt><dd>${c.cases}</dd></div><div><dt>Source</dt><dd>HIGH TUNNEL - HT${parseLoc(i.bed.id).b}</dd></div></dl>`}
+ if(ui.tab==='dispatch'){const w=o=>WORKERS.map(x=>`<option ${x===o?'selected':''}>${x}</option>`).join('');
+  return`<div class="row"><label>Date <input type="date" id="dDate" value="${today()}"></label><label>Crew <select id="dCrew">${w()}</select></label></div>`+Object.entries(CATS).map(([k,a])=>`<div class="item"><b>${k}</b>${a.map((x,n)=>`<div class="row" style="margin:4px 0"><label style="flex:1"><input type="checkbox" class="dAct" value="${x}"> ${x}</label><select class="dW">${w()}</select></div>`).join('')}</div>`).join('')+`<button class="p" data-act="dispatch">Dispatch selected</button>`}
+ if(ui.tab==='tasks'){const t=db.tasks.filter(x=>x.bed===i.bed.id);return t.length?t.map(x=>`<div class="item"><b>${x.act}</b> · ${x.worker} · <span class="chip" style="background:var(--s-avail)">${x.status}</span><div class="row" style="margin-top:6px">${x.status!=='DONE'&&mine(x)?`<button data-act="task" data-op="${x.status==='RUNNING'?'pause':'start'}" data-id="${x.id}">${x.status==='RUNNING'?'Pause':'Start'}</button><button data-act="task" data-op="done" data-id="${x.id}">Complete</button>${can('reassign')?`<button data-act="reassign" data-id="${x.id}">Reassign</button>`:''}`:`<span class="mut">${x.date}</span>`}</div></div>`).join(''):'<p class="mut">No tasks for this bed.</p>'}
+ const ex=db.exceptions.filter(e=>e.bed===i.bed.id);let h=ex.map(e=>`<div class="item"><span class="chip ${e.sev}">${e.sev}</span> ${e.text}${e.open?`<div class="row" style="margin-top:6px">${can('resolveException')?`<button data-act="resolve" data-id="${e.id}">Resolve…</button>`:''}</div>`:` <span class="mut">· resolved${e.note?': '+e.note:''}</span>`}</div>`).join('')||'<p class="mut">No exceptions.</p>';
+ if(i.stage==='COMPLETED'&&can('verifyBed'))h+=`<div class="item"><b>Post-harvest turnover</b><div class="mut">Residue cleared, drip checked, bed sanitized?</div><div class="row" style="margin-top:6px"><button class="p" data-act="verify">Verify bed ready → release</button></div></div>`;return h}
+function queueHTML(){if(!can('approve'))return'<p class="mut">Queue approvals are for Manager / Founder logins.</p>';const P=db.proposals.filter(p=>p.status==='PENDING');if(!P.length)return'<p class="mut">No pending proposals.</p>';
+ return`<div class="row"><button class="p" data-act="approveSel">Approve selected</button><button data-act="selAll">Select all</button></div>`+P.map(p=>{const cands=Object.keys(db.beds).filter(b=>isFree(b)||b===p.bed);
+  return`<div class="item"><label><input type="checkbox" class="pChk" value="${p.id}" ${ui.checked[p.id]?'checked':''}> <b>${p.cohort}</b></label><div class="mut">${CROPS[p.crop]?CROPS[p.crop][0]:p.crop} · ${p.cases} cases</div><div class="row" style="margin-top:6px"><select data-act="cand" data-id="${p.id}">${cands.map(b=>`<option ${b===p.bed?'selected':''}>${b}</option>`).join('')}</select><button class="p" data-act="approve" data-id="${p.id}">Approve</button><button class="d" data-act="reject" data-id="${p.id}">Reject…</button></div></div>`}).join('')}
+function planHTML(){return`<p class="mut">Season plan snapshot. Full planning lives in the SEASONAL_PLANNER sheet.</p>`+db.plans.map(p=>{const r=Math.round(p.delivered/p.target*100);return`<div class="item"><b>${p.id}</b> · ${(CROPS[p.crop]||[p.crop])[0]}<div class="mut">${p.delivered} / ${p.target} cases delivered (${r}%)</div><div style="height:6px;background:var(--s-avail);border-radius:4px"><div style="height:6px;width:${r}%;background:var(--acc);border-radius:4px"></div></div></div>`}).join('')}
+function goPlanning(){ui.side='plan';render()}
+// ---- modal
+function modal(title,html,ok,wide){const m=$('#modal');$('#mbody').className='card'+(wide?' wide':'');$('#mbody').innerHTML=`<b>${title}</b><div style="margin:10px 0">${html}</div><div class="row"><button class="p" id="mOk">OK</button><button id="mNo">Cancel</button></div>`;m.style.display='flex';$('#mNo').onclick=()=>m.style.display='none';$('#mOk').onclick=()=>{if(ok()!==false)m.style.display='none'}}
+function connectDlg(){modal('Backend connection',HAS_GSR?'<p class="mut">Served by Apps Script: connected through google.script.run, no URL needed. Sign in with your PIN.</p>':`<p class="mut">Paste your Apps Script web-app URL (/exec). Stored in this browser only. Deploy it with "Who has access: Anyone" — the PIN login protects it.</p><input id="cU" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%" value="${esc(WEB_APP_URL)}">`,()=>{if(!HAS_GSR){try{localStorage.setItem('aab-url',$('#cU').value.trim())}catch(e){}location.reload()}})}
+// ---- events
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t||t.tagName==='SELECT')return;const a=t.dataset.act,id=t.dataset.id;
+ if(a==='view'){ui.view=t.dataset.v;render()}else if(a==='filter'){ui.filter=t.dataset.f;render()}else if(a==='plan')goPlanning();
+ else if(a==='doLogin')doLogin();else if(a==='logout')logout();else if(a==='loglog')showLog();else if(a==='retryUsers')loadUsers();else if(a==='connect')connectDlg();else if(a==='refresh')loadToday();else if(a==='net'){syncSt.state==='none'?connectDlg():ME?loadToday():loadUsers()}else if(a==='theme'){const r=document.documentElement,d=r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme:dark)').matches);r.dataset.theme=d?'light':'dark'}
+ else if(a==='bed'){ui.sel=id;ui.side='bed';ui.tab=ui.tab||'overview';render()}else if(a==='side'){ui.side=t.dataset.s;render()}else if(a==='tab'){ui.tab=t.dataset.t;render()}
+ else if(a==='dispatch'){const items=[...document.querySelectorAll('.dAct')].map((c,n)=>c.checked?{act:c.value,worker:document.querySelectorAll('.dW')[n].value||$('#dCrew').value}:null).filter(Boolean);if(!items.length)return toast('Select at least one activity');act('dispatch',{bed:ui.sel,date:$('#dDate').value,items},`Dispatched ${items.length} task(s)`);ui.tab='tasks'}
+ else if(a==='task')act('taskAction',{id,op:t.dataset.op});
+ else if(a==='reassign')modal('Reassign task',`<select id="mW">${WORKERS.map(w=>`<option>${w}</option>`).join('')}</select>`,()=>{act('taskAction',{id,op:'reassign',worker:$('#mW').value},'Reassigned')});
+ else if(a==='resolve')modal('Resolve exception','<textarea id="mN" rows="3" style="width:100%" placeholder="Resolution note"></textarea>',()=>{act('resolveException',{id,note:$('#mN').value},'Exception resolved')});
+ else if(a==='verify')act('verifyBed',{bed:ui.sel},'Bed released to AVAILABLE');
+ else if(a==='approve')act('approve',{ids:[id]},'Approved');
+ else if(a==='approveSel'){const ids=[...document.querySelectorAll('.pChk:checked')].map(c=>c.value);if(!ids.length)return toast('Select proposals first');act('approve',{ids},`Approved ${ids.length}`)}
+ else if(a==='selAll'){db.proposals.filter(p=>p.status==='PENDING').forEach(p=>ui.checked[p.id]=true);render()}
+ else if(a==='reject')modal('Reject proposal','<textarea id="mR" rows="3" style="width:100%" placeholder="Reason (required)"></textarea>',()=>{const r=$('#mR').value.trim();if(!r){toast('Reason required');return false}act('reject',{id,reason:r},'Rejected')})});
+document.addEventListener('change',e=>{const t=e.target;if(t.dataset.act==='auto')setAuto(+t.value);if(t.dataset.act==='cand')act('changeBed',{id:t.dataset.id,bed:t.value},'Bed changed');if(t.classList.contains('pChk'))ui.checked[t.value]=t.checked});
+addEventListener('online',()=>{if(ME)loadToday()});document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lPin')doLogin()});addEventListener('offline',()=>setStatus('offline'));
+document.addEventListener('visibilitychange',()=>{if(ME&&!document.hidden)loadToday()});setInterval(renderPill,5000);
+$('#auto').value=String(autoSec);setAuto(autoSec);render();renderWho();
+if(!HAS_GSR&&!WEB_APP_URL){setStatus('none');showLogin('')}else if(SESS){setStatus('sync');loadToday()}else showLogin('');
+</script></body></html>
