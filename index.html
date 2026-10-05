@@ -78,15 +78,14 @@ function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';cl
 // ---- auth
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const can=a=>!!ME&&(ME.perms.includes('*')||ME.perms.includes(a)), mine=x=>!!ME&&(ME.perms.includes('*')||x.worker===ME.name);
-let LU=[],LERR='',LBUSY=false;
+let LERR='',LBUSY=false;
 function renderWho(){const w=$('#who'),o=$('#bOut'),l=$('#bLog');if(!w)return;w.style.display=o.style.display=ME?'':'none';if(ME)w.textContent=ME.name+' · '+ME.role;l.style.display=can('getLoginLog')?'':'none'}
-function showLogin(msg){LERR=msg||'';$('#login').style.display='flex';setStatus(HAS_GSR||WEB_APP_URL?'login':'none');renderLogin();if(!LU.length&&(HAS_GSR||WEB_APP_URL))loadUsers()}
+function showLogin(msg){LERR=msg||'';$('#login').style.display='flex';setStatus(HAS_GSR||WEB_APP_URL?'login':'none');renderLogin()}
 function hideLogin(){$('#login').style.display='none'}
-async function loadUsers(){try{const r=await api('listUsers',{},{soft:true});LU=r.users||[];LERR='';setStatus('login')}catch(e){LERR='Could not reach the server: '+e.message}renderLogin()}
 function renderLogin(){const b=$('#lBody');if(!b)return;let last='';try{last=localStorage.getItem('aab-last')||''}catch(e){}const cur=$('#lUser')?$('#lUser').value:last;
- b.innerHTML=(LU.length?`<select id="lUser">${LU.map(u=>`<option value="${esc(u.id)}" ${u.id===cur?'selected':''}>${esc(u.name)}</option>`).join('')}</select>`:`<p class="mut">${HAS_GSR||WEB_APP_URL?'Loading users…':'Not connected.'}</p>`)+`<input id="lPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN" ${LU.length?'':'disabled'}><div class="err">${esc(LERR)}</div><button class="p" data-act="doLogin" style="width:100%" ${LU.length&&!LBUSY?'':'disabled'}>${LBUSY?'Signing in…':'Sign in'}</button><div class="row" style="margin:10px 0 0;justify-content:space-between"><button data-act="connect">⚙ Backend</button>${LU.length?'':'<button data-act="retryUsers">Retry</button>'}</div>`;
- if(LERR&&$('#lPin')&&!LBUSY)$('#lPin').focus()}
-async function doLogin(){if(LBUSY)return;const id=$('#lUser')&&$('#lUser').value,pin=$('#lPin')&&$('#lPin').value;if(!id||!pin){LERR='Select your name and enter your PIN';return renderLogin()}
+ b.innerHTML=`<input id="lUser" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="User name" value="${esc(cur)}"><input id="lPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN"><div class="err">${esc(LERR)}</div><button class="p" data-act="doLogin" style="width:100%" ${LBUSY?'disabled':''}>${LBUSY?'Signing in…':'Sign in'}</button><div class="row" style="margin:10px 0 0"><button data-act="connect">⚙ Backend</button></div>`;
+ const f=$('#lUser').value?$('#lPin'):$('#lUser');if(!LBUSY&&f)f.focus()}
+async function doLogin(){if(LBUSY)return;const id=$('#lUser')&&$('#lUser').value.trim(),pin=$('#lPin')&&$('#lPin').value;if(!id||!pin){LERR='Enter your user name and PIN';return renderLogin()}
  LBUSY=true;LERR='';renderLogin();
  try{const r=await api('login',{userId:id,pin,ua:navigator.userAgent.slice(0,160)},{soft:true});SESS=r.session;try{localStorage.setItem('aab-sess',SESS);localStorage.setItem('aab-last',id)}catch(e){}LBUSY=false;hideLogin();applyData(r.data);toast('Welcome, '+r.user.name)}
  catch(e){LBUSY=false;LERR=e.message;renderLogin()}}
@@ -134,7 +133,7 @@ function connectDlg(){modal('Backend connection',HAS_GSR?'<p class="mut">Served 
 // ---- events
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t||t.tagName==='SELECT')return;const a=t.dataset.act,id=t.dataset.id;
  if(a==='view'){ui.view=t.dataset.v;render()}else if(a==='filter'){ui.filter=t.dataset.f;render()}else if(a==='plan')goPlanning();
- else if(a==='doLogin')doLogin();else if(a==='logout')logout();else if(a==='loglog')showLog();else if(a==='retryUsers')loadUsers();else if(a==='connect')connectDlg();else if(a==='refresh')loadToday();else if(a==='net'){syncSt.state==='none'?connectDlg():ME?loadToday():loadUsers()}else if(a==='theme'){const r=document.documentElement,d=r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme:dark)').matches);r.dataset.theme=d?'light':'dark'}
+ else if(a==='doLogin')doLogin();else if(a==='logout')logout();else if(a==='loglog')showLog();else if(a==='connect')connectDlg();else if(a==='refresh')loadToday();else if(a==='net'){syncSt.state==='none'?connectDlg():ME?loadToday():showLogin('')}else if(a==='theme'){const r=document.documentElement,d=r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme:dark)').matches);r.dataset.theme=d?'light':'dark'}
  else if(a==='bed'){ui.sel=id;ui.side='bed';ui.tab=ui.tab||'overview';render()}else if(a==='side'){ui.side=t.dataset.s;render()}else if(a==='tab'){ui.tab=t.dataset.t;render()}
  else if(a==='dispatch'){const items=[...document.querySelectorAll('.dAct')].map((c,n)=>c.checked?{act:c.value,worker:document.querySelectorAll('.dW')[n].value||$('#dCrew').value}:null).filter(Boolean);if(!items.length)return toast('Select at least one activity');act('dispatch',{bed:ui.sel,date:$('#dDate').value,items},`Dispatched ${items.length} task(s)`);ui.tab='tasks'}
  else if(a==='task')act('taskAction',{id,op:t.dataset.op});
