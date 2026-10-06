@@ -72,7 +72,7 @@ async function api(action,data={},o={}){
  try{let j;const body={action,session:SESS,...data};if(HAS_GSR)j=JSON.parse(await gsr(body));else{const r=await fetch(WEB_APP_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body),signal:ac.signal});j=await r.json()}
   if(!j.ok){const er=new Error(j.error||'Server error');er.srv=true;er.auth=!!j.auth;throw er}return j}
  catch(e){if(e.auth)endSession('Session expired — please sign in again');else if(e.srv&&o.soft)setStatus(ME?'ok':'login');else setStatus(navigator.onLine?'error':'offline',e.name==='AbortError'?'Timed out':e.message);throw e}finally{clearTimeout(t)}}
-function loadToday(){if(inflight)return inflight;inflight=api('getToday').then(r=>applyData(r.data)).catch(()=>{}).finally(()=>{inflight=null});return inflight}
+function loadToday(){if(inflight)return inflight;inflight=api('getToday').then(r=>applyData(r.data)).catch(e=>{if(!(e&&e.srv))setStatus('error',(e&&(e.message||e.error))||'Load failed: '+String(e))}).finally(()=>{inflight=null});return inflight}
 async function act(action,data,msg){try{const r=await api(action,data);applyData(r.data);if(msg)toast(msg)}catch(e){toast(e.message)}}
 function setAuto(n){autoSec=n;clearInterval(timer);if(n>0)timer=setInterval(()=>{if(ME&&!document.hidden&&$('#modal').style.display!=='flex')loadToday()},n*1000);try{localStorage.setItem('aab-auto',n)}catch(e){}}
 function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',2600)}
