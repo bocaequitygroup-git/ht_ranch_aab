@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ranch-ht-aab · HT Activity Assignment Board</title>
+<title>ranch-ht-aab · HT Activity Assignment Board · crop-profile-v5</title>
 <style>
 :root{--bg:#f4f6f2;--card:#fff;--ink:#1d2a1f;--mut:#667366;--line:#d9dfd5;--acc:#2e5e3e;--on:#fff;
 --s-avail:#e9ede6;--s-pre:#f6e3a1;--s-act:#8fcf9a;--s-rdy:#f5b04c;--s-hv:#e8803a;--s-done:#b8a9d4;--s-hold:#e48f8f;
@@ -35,7 +35,7 @@ svg{width:100%;height:auto;display:block}.bed{cursor:pointer;stroke:var(--line);
 .cpi{display:flex;gap:6px;align-items:center;width:100%;text-align:left;margin:2px 0}.cpi>span:first-child{flex:1}.cpi .chip{background:var(--q-att);color:#1d2a1f}
 </style></head><body>
 <header>
-<h1>ranch-ht-aab<small>VPOS-HT · Activity Assignment Board · 6 bays × 6 beds</small></h1>
+<h1>ranch-ht-aab<small>VPOS-HT · Activity Assignment Board · 6 bays × 6 beds · build crop-profile-v5</small></h1>
 <span id="net" class="pill none" data-act="net" style="cursor:pointer">○ Not connected</span><button id="rf" data-act="refresh" title="Refresh now"><span id="rfi">⟳</span></button><select id="auto" data-act="auto" title="Auto-refresh"><option value="0">Auto: off</option><option value="15">Auto: 15 s</option><option value="30">Auto: 30 s</option><option value="60">Auto: 1 min</option><option value="300">Auto: 5 min</option></select>
 <button id="vStage" class="on" data-act="view" data-v="stage">Current Stage</button><button id="vQueue" data-act="view" data-v="queue">Queue</button>
 <button data-act="plan">Season Planning</button><button data-act="cropsPage">Crops</button><button data-act="theme" title="Toggle theme">◐</button><button data-act="connect" title="Backend connection">⚙</button><button id="bLog" data-act="loglog" title="Login log" style="display:none">🔐</button><span id="who" class="pill online" style="display:none"></span><button id="bOut" data-act="logout" style="display:none">Logout</button>
