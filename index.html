@@ -229,6 +229,7 @@ document.addEventListener('change',e=>{const t=e.target;if(t.dataset.act==='addA
 document.addEventListener('input',e=>{if(e.target.id==='ovrTxt')ui.dsp.txt=e.target.value;if(e.target.id==='dDate'&&e.target.value)ui.dsp.date=e.target.value});
 addEventListener('online',()=>{if(ME)loadToday()});document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lPin')doLogin()});addEventListener('offline',()=>setStatus('offline'));
 document.addEventListener('visibilitychange',()=>{if(ME&&!document.hidden)loadToday()});setInterval(renderPill,5000);
+addEventListener('error',e=>{const t=$('#toast');t.textContent='Script error: '+e.message+(e.lineno?' (line '+e.lineno+')':'');t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',12000)});addEventListener('unhandledrejection',e=>toast('Error: '+((e.reason&&e.reason.message)||e.reason)));
 $('#auto').value=String(autoSec);setAuto(autoSec);render();renderWho();
 if(!HAS_GSR&&!WEB_APP_URL){setStatus('none');showLogin('')}else if(SESS){setStatus('sync');loadToday()}else showLogin('');
 </script></body></html>
