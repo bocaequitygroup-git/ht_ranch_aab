@@ -52,13 +52,23 @@ const FAM={"MCH":"Leafy Greens","AMA-L":"Leafy Greens","SUK":"Leafy Greens","MUS
 const CROPS={SUK:['Sukuma Wiki',50,70],KAL:['Kale',55,75],CHD:['Swiss Chard',45,60],SPI:['Spinach',35,45],CAR:['Carrots',65,80],BRO:['Broccoli',60,80],CAB:['Cabbage',70,90],LET:['Lettuce',45,60],MUS:['Mustard Greens',35,45],BET:['Beets',55,70],ONI:['Onions',90,120],COL:['Collard Greens',60,80]};
 const CATS={'Soil & Bed Prep':['Bed shaping','Compost application','Drip line check (15 PSI)'],'Crop Maintenance':['Weeding','Irrigation check','Pest scouting','Row cover / vent'],'Harvest Operations':['Harvest','Grade & pack','Crate labeling (QR)'],'Post-Harvest & Sanitation':['Residue clearing','Bed sanitation','Verify bed ready']};
 let WORKERS=['Amani','Baraka','Chebet','Dawa','Eko'];
-const STAGE_COL={AVAILABLE:'--s-avail',RESERVED:'--s-pre',PRE_PLANTING:'--s-pre',ACTIVE:'--s-act',HARVEST_READY:'--s-rdy',HARVESTING:'--s-hv',COMPLETED:'--s-done',SANITATION:'--s-hold',HOLD:'--s-hold'};
+const STAGE_COL={AVAILABLE:'--s-avail',RESERVED:'--s-pre',PRE_PLANTING:'--s-pre',ACTIVE:'--s-act',HARVEST_READY:'--s-rdy',HARVESTING:'--s-hv',COMPLETED:'--s-done',POST_HARVEST:'--s-done',TURNOVER:'--s-hold',OCCUPIED:'--s-act',SANITATION:'--s-hold',HOLD:'--s-hold',UNKNOWN:'--s-avail'};
 const Q_COL={MUST_DO:'--q-must',ATTENTION:'--q-att',ROUTINE:'--q-rout',PROPOSED:'--q-prop'};
 let ui={view:'stage',filter:'ALL',sel:null,tab:'overview',side:'queue',checked:{}}, db={beds:{},cohorts:[],tasks:[],exceptions:[],proposals:[],plans:[]}, loaded=false, wb='', lastOk=0, syncSt={state:'none',msg:''};
 const bid=(b,n)=>`HT-B${b}-${String(n).padStart(2,'0')}`;
 function parseLoc(id){const s=String(id).trim().toUpperCase();let m=/^(?:HT-)?(?:B|BLK|BLOCK)\s*(\d+)[-_ ](\d+)$/.exec(s);if(m)return{b:+m[1],n:+m[2]};m=/^(?:HT|ZONE\s*)(\d)$/.exec(s);return m?{b:+m[1],n:0}:null}
 const cohortOn=bed=>db.cohorts.find(c=>c.bed===bed&&c.status!=='RELEASED');
-const isFree=b=>db.beds[b]&&db.beds[b].status==='AVAILABLE'&&!cohortOn(b)&&!db.proposals.some(p=>p.status==='PENDING'&&p.bed===b);
+// A bed is AVAILABLE only when: no active/unreleased cohort, no reservation, turnover cycle closed (all required steps done + final inspection PASS, as computed by the engine) and not on hold.
+function availWhy(id){const bed=db.beds[id],why=[];if(!bed)return['bed status not loaded'];const c=cohortOn(id);
+ if(c)why.push((c.status==='COMPLETED'?'previous cohort ':'active cohort ')+c.id+(c.status==='COMPLETED'?' not yet released':''));
+ if(bed.status==='HOLD')why.push('on hold');
+ if(bed.reserved||bed.status==='RESERVED')why.push('reserved');
+ if(bed.turn)why.push('turnover '+bed.turn.progress+' complete'+(bed.turn.inspected?'':', final inspection not passed'));
+ else if(['POST_HARVEST','TURNOVER'].includes(bed.status))why.push('turnover in progress');
+ if(bed.status!=='AVAILABLE'&&!why.length)why.push(String(bed.status).replace(/_/g,' ').toLowerCase());
+ return why}
+const isAvail=id=>availWhy(id).length===0;
+const isFree=b=>isAvail(b)&&!db.proposals.some(p=>p.status==='PENDING'&&p.bed===b);
 let autoSec=30,timer=null,inflight=null;try{const v=localStorage.getItem('aab-auto');if(v!==null)autoSec=+v}catch(e){}
 function setStatus(state,msg){syncSt={state,msg:msg||''};renderPill()}
 function renderPill(){const e=$('#net');if(!e)return;const st=syncSt.state,t=lastOk?new Date(lastOk).toLocaleTimeString([],{hour12:false}):'',age=lastOk?(Date.now()-lastOk)/1000:0,stale=st==='ok'&&autoSec>0&&age>autoSec*2+10;
@@ -94,11 +104,11 @@ function endSession(msg){SESS='';ME=null;loaded=false;db={beds:{},cohorts:[],tas
 async function logout(){try{await api('logout',{},{soft:true})}catch(e){}endSession('Signed out')}
 async function showLog(){try{const r=await api('getLoginLog',{},{soft:true});modal('Login log (latest '+r.log.length+')',`<table class="lg"><tr><th>Time</th><th>User</th><th>Event</th><th>Detail</th></tr>${r.log.map(x=>`<tr><td>${esc(x.at)}</td><td>${esc(x.name||x.id)}</td><td>${esc(x.event)}</td><td>${esc(x.detail)}${x.client?` <span class="mut">${esc(String(x.client).slice(0,40))}</span>`:''}</td></tr>`).join('')}</table>`,()=>true,true)}catch(e){toast(e.message)}}
 // ---- derived bed info
-function info(id){const bed=db.beds[id]||{id,status:'AVAILABLE'},c=cohortOn(id),ex=db.exceptions.filter(e=>e.bed===id&&e.open),tk=db.tasks.filter(t=>t.bed===id&&t.status==='RUNNING'),pr=db.proposals.find(p=>p.status==='PENDING'&&p.bed===id);
+function info(id){const bed=db.beds[id]||{id,status:'UNKNOWN'},c=cohortOn(id),ex=db.exceptions.filter(e=>e.bed===id&&e.open),tk=db.tasks.filter(t=>t.bed===id&&t.status==='RUNNING'),pr=db.proposals.find(p=>p.status==='PENDING'&&p.bed===id);
  const stage=c?c.status:bed.status;let q='';
  if(ex.some(e=>e.sev==='HIGH')||stage==='HARVEST_READY')q='MUST_DO';else if(ex.length||(c&&['PENDING','FAIL'].includes(c.vest))||stage==='COMPLETED')q='ATTENTION';else if(pr)q='PROPOSED';else if(c)q='ROUTINE';
- return{bed,c,ex,tk,pr,stage,q}}
-const FILTERS={ALL:()=>true,OCCUPIED:i=>i.c&&i.stage!=='COMPLETED',PROPOSED:i=>!!i.pr,AVAILABLE:i=>i.stage==='AVAILABLE'&&!i.pr,UNVERIFIED:i=>i.c&&['PENDING','FAIL'].includes(i.c.vest),POST_HARVEST:i=>i.stage==='COMPLETED',EXCEPTION:i=>i.ex.length>0};
+ return{bed,c,ex,tk,pr,stage,q,avail:isAvail(id),why:availWhy(id)}}
+const FILTERS={ALL:()=>true,OCCUPIED:i=>i.c&&i.stage!=='COMPLETED',PROPOSED:i=>!!i.pr,AVAILABLE:i=>i.avail&&!i.pr,UNVERIFIED:i=>i.c&&['PENDING','FAIL'].includes(i.c.vest),POST_HARVEST:i=>['COMPLETED','POST_HARVEST','TURNOVER'].includes(i.stage),EXCEPTION:i=>i.ex.length>0};
 // ---- render
 function render(){if(!db)return;renderFilters();renderMap();renderSide();$('#vStage').classList.toggle('on',ui.view==='stage');$('#vQueue').classList.toggle('on',ui.view==='queue');
  const n=db.proposals.filter(p=>p.status==='PENDING').length;$('#qTab').textContent='Assignment Queue'+(n?` (${n})`:'')}
@@ -108,7 +118,7 @@ function renderMap(){let s='';
   for(let n=1;n<=BEDS_PER_ROW;n++){const id=bid(b,n),i=info(id),x=44+(n-1)*66,col=ui.view==='stage'?STAGE_COL[i.stage]:(Q_COL[i.q]||'--s-avail'),dim=FILTERS[ui.filter](i)?1:.2;
    s+=`<g data-act="bed" data-id="${id}" opacity="${dim}"><rect class="bed ${ui.sel===id?'sel':''}" x="${x}" y="${y}" width="60" height="50" rx="7" fill="var(${col})"/><text x="${x+30}" y="${y+20}" text-anchor="middle" style="font-weight:700">${n.toString().padStart(2,'0')}</text><text x="${x+30}" y="${y+34}" text-anchor="middle" style="font-size:8px">${i.c?i.c.crop:i.pr?'▸'+i.pr.crop:''}</text>`;
    if(i.tk.length)s+=`<circle cx="${x+9}" cy="${y+9}" r="5" fill="#2f7fd0"/>`;if(i.ex.length)s+=`<circle cx="${x+51}" cy="${y+9}" r="6" fill="#c0392b"/><text x="${x+51}" y="${y+12}" text-anchor="middle" style="fill:#fff;font-weight:700">!</text>`;if(i.stage==='HARVEST_READY')s+=`<text x="${x+9}" y="${y+45}" style="font-size:11px">✂</text>`;s+='</g>'}}
- $('#map').innerHTML=s;const L=ui.view==='stage'?[['AVAILABLE','Available'],['PRE_PLANTING','Pre-plant/Reserved'],['ACTIVE','Growing'],['HARVEST_READY','Harvest ready'],['HARVESTING','Harvesting'],['COMPLETED','Post-harvest'],['HOLD','Hold/Sanitation']].map(a=>[STAGE_COL[a[0]],a[1]]):Object.entries(Q_COL).map(([k,v])=>[v,k.replace('_',' ')]);
+ $('#map').innerHTML=s;const L=ui.view==='stage'?[['AVAILABLE','Available'],['PRE_PLANTING','Pre-plant/Reserved'],['ACTIVE','Growing'],['HARVEST_READY','Harvest ready'],['HARVESTING','Harvesting'],['COMPLETED','Post-harvest'],['HOLD','Turnover/Hold']].map(a=>[STAGE_COL[a[0]],a[1]]):Object.entries(Q_COL).map(([k,v])=>[v,k.replace('_',' ')]);
  $('#legend').innerHTML=L.map(a=>`<span><i style="background:var(${a[0]})"></i>${a[1]}</span>`).join('')+'<span>🔵 worker active · 🔴 exception · ✂ harvest ready</span>'}
 function renderSide(){const el=$('#side');if(!loaded){const k=syncSt.state;return el.innerHTML=k==='sync'?'<p class="mut">Connecting to the workbook…</p>':k==='login'?'<p class="mut">Sign in to view the board.</p>':`<p class="mut">${k==='none'?'Not connected to the workbook.':'Could not load the workbook: '+(syncSt.msg||k)}</p><button class="p" data-act="${k==='none'?'connect':'refresh'}">${k==='none'?'Connect':'Retry'}</button>`}
  if(ui.side==='queue')return el.innerHTML=queueHTML();if(ui.side==='plan')return el.innerHTML=planHTML();
@@ -120,7 +130,7 @@ function bedTab(i){const c=i.c;
  if(ui.tab==='dispatch')return bedDispatch(i);
  if(ui.tab==='tasks'){const t=db.tasks.filter(x=>x.bed===i.bed.id);return t.length?t.map(x=>`<div class="item"><b>${x.act}</b> · ${x.worker} · <span class="chip" style="background:var(--s-avail)">${x.status}</span><div class="row" style="margin-top:6px">${x.status!=='DONE'&&mine(x)?`<button data-act="task" data-op="${x.status==='RUNNING'?'pause':'start'}" data-id="${x.id}">${x.status==='RUNNING'?'Pause':'Start'}</button><button data-act="task" data-op="done" data-id="${x.id}">Complete</button>${can('reassign')?`<button data-act="reassign" data-id="${x.id}">Reassign</button>`:''}`:`<span class="mut">${x.date}</span>`}</div></div>`).join(''):'<p class="mut">No tasks for this bed.</p>'}
  const ex=db.exceptions.filter(e=>e.bed===i.bed.id);let h=ex.map(e=>`<div class="item"><span class="chip ${e.sev}">${e.sev}</span> ${e.text}${e.open?`<div class="row" style="margin-top:6px">${can('resolveException')?`<button data-act="resolve" data-id="${e.id}">Resolve…</button>`:''}</div>`:` <span class="mut">· resolved${e.note?': '+e.note:''}</span>`}</div>`).join('')||'<p class="mut">No exceptions.</p>';
- if(i.stage==='COMPLETED'&&can('verifyBed'))h+=`<div class="item"><b>Post-harvest turnover</b><div class="mut">Residue cleared, drip checked, bed sanitized?</div><div class="row" style="margin-top:6px"><button class="p" data-act="verify">Verify bed ready → release</button></div></div>`;return h}
+ if(isPH(i)&&can('verifyBed'))h+=`<div class="item"><b>Post-harvest turnover</b><div class="mut">${i.bed.turn?E(i.bed.turn.progress)+' steps complete · ':''}Release needs every turnover step done and final inspection PASS.</div><div class="row" style="margin-top:6px"><button class="p" data-act="verify" ${canRelease(i)?'':'disabled'}>Verify bed ready → release</button></div></div>`;return h}
 
 // ---- bed panel
 const E=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -129,12 +139,13 @@ ui.dsp=ui.dsp||{w:[],a:[],cust:{},edit:'',ovr:false,txt:''};
 const kv=(k,v)=>`<div><dt>${k}</dt><dd>${E(v)||'—'}</dd></div>`,sec=(t,h)=>`<div class="item"><b>${t}</b>${h}</div>`;
 const fam=x=>FAM[x]||'';
 const histOf=i=>db.cohorts.filter(c=>c.bed===i.bed.id&&c.status==='COMPLETED'&&(!i.c||c.id!==i.c.id)).sort((x,y)=>(y.dob||'')<(x.dob||'')?-1:1);
-const locked=i=>i.stage==='COMPLETED'&&!(i.c&&i.c.released);
-function bedProfile(i){const b=i.bed;return sec('Bed profile · '+b.id,`<dl class="grid2">${kv('Bed ID',b.id)}${kv('Type of Bed',b.zone)}${kv('Bed Profile',b.block)}${kv('Physical Status',[b.health,b.irr].filter(Boolean).join(' · '))}${kv('Production Type',b.loc)}${kv('Location Type',[b.block,b.zone].filter(Boolean).join(' · '))}${kv('Bed Length',b.len)}${kv('Availability',b.occ)}${kv('Status',b.status)}</dl>`)}
+const locked=i=>['COMPLETED','POST_HARVEST','TURNOVER'].includes(i.stage)&&!(i.c&&i.c.released);
+function bedProfile(i){const b=i.bed;return sec('Bed profile · '+b.id,`<dl class="grid2">${kv('Bed ID',b.id)}${kv('Type of Bed',b.zone)}${kv('Bed Profile',b.block)}${kv('Physical Status',[b.health,b.irr].filter(Boolean).join(' · '))}${kv('Production Type',b.loc)}${kv('Location Type',[b.block,b.zone].filter(Boolean).join(' · '))}${kv('Bed Length',b.len)}${kv('Availability',i.avail?'AVAILABLE':'NOT AVAILABLE — '+i.why.join('; '))}${kv('Status',String(i.stage==='COMPLETED'?'POST_HARVEST':i.stage).replace(/_/g,' '))}</dl>`)}
 function bedPlan(i){const p=i.pr,c=i.c;return sec('Planning'+(locked(i)?' 🔒':''),(locked(i)?'<p class="mut">Post-harvest work must be completed and the bed verified by a manager before this plan can move forward.</p>':'')+`<dl class="grid2">${kv('Crop',p?(CROPS[p.crop]||[p.crop])[0]:'')}${kv('Wave',p&&p.wave)}${kv('Planting Date',p&&p.plant)}${kv('Plan Status',p&&p.status)}${kv('Release',c&&c.released)}</dl>`)}
 function bedRot(i){const cur=(i.pr||i.c||{}).crop,h=histOf(i)[0],pf=h?fam(h.crop):'',cf=fam(cur),res=pf&&cf?(pf===cf?'⚠ Same family as last crop: rotate':'✓ Rotated'):'';return sec('Rotation',`<dl class="grid2">${kv('Current Family',cf)}${kv('Previous Year Family',pf)}${kv('Rotation Result',res)}</dl><div class="mut">Family = Category from Crop_Reference.</div>`)}
 function bedProd(i){const c=i.c,t=db.tasks.find(x=>x.bed===i.bed.id&&x.status!=='DONE');return sec('Current production',`<dl class="grid2">${kv('Current Cohort',c&&c.id)}${kv('Current Stage',i.stage)}${kv('Worker',t&&t.worker)}</dl>`)}
 function bedHist(i){const h=histOf(i);return sec('History',h.length?h.map(c=>`<details><summary>${E(c.cropName||c.crop)} · ${E(c.id)}</summary><div class="mut">DOB ${E(c.dob||'—')} · released ${E(c.released||'not yet')}</div></details>`).join(''):'<div class="mut">▸ No history</div>')}
+const canRelease=i=>{const t=i.bed.turn;return t?t.remaining===0&&t.inspected:reqList(i).every(a=>isDone(a,i.bed.id))};
 const hasCat=()=>Array.isArray(db.catalog)&&db.catalog.length>0;
 const CATALOG=()=>hasCat()?db.catalog:ALLACT.map(n=>({id:n,name:n,group:Object.keys(CATS).find(k=>CATS[k].includes(n))||'',req:false}));
 const actById=k=>CATALOG().find(a=>a.id===k)||{id:k,name:k,group:'',req:false};
@@ -154,11 +165,11 @@ function bedDispatch(i){const id=i.bed.id,b=i.bed,d=ui.dsp,mgr=can('dispatch'),r
  <b>Assign worker(s)</b> <span class="mut">${d.w.length} selected</span><div>${wl(d.w,'wk')}</div><div class="row"><button data-act="wkAll">Select all workers</button><button data-act="wkClr">Clear workers</button></div>
  <div class="row"><label>Date <input type="date" id="dDate" value="${E(d.date)}"></label><button class="${d.date===today()?'on':''}" data-act="dDay" data-id="${today()}">Today</button><button class="${d.date===tomorrow()?'on':''}" data-act="dDay" data-id="${tomorrow()}">Tomorrow</button></div>
  <b>Select activities to dispatch</b> <span class="mut">(${d.a.length} selected)</span><div class="row">${chips}</div>
- <div class="mut">Required workflow · ${req.length-left.length} / ${req.length} complete${left.length?': still '+E(left.map(a=>a.name).join(', ')):''}</div>
+ <div class="mut">Required workflow · ${i.bed.turn?i.bed.turn.total-i.bed.turn.remaining+' / '+i.bed.turn.total:req.length-left.length+' / '+req.length} complete${i.bed.turn&&i.bed.turn.phase&&i.bed.turn.remaining?' · phase '+E(i.bed.turn.phase):''}${!i.bed.turn&&left.length?': still '+E(left.map(a=>a.name).join(', ')):''}</div>
  <div class="row"><select data-act="addAct"><option value="">+ Add an activity (${avail.length} available)…</option>${avail.map(a=>`<option value="${E(a.id)}">${E(lab(a))}</option>`).join('')}</select><button data-act="actClr">Clear selection</button></div>${rows}<div class="mut">Workers you pick above apply to every ticked activity. Use "customize" on a row to give that activity a different crew.</div>`)
  +(mgr?sec('Manager override',`<div class="mut">Skip required steps that will not be done (e.g. no cover crop this year, or end a waiting period early). A written explanation is required and is logged with your name.</div><label><input type="checkbox" data-act="ovr" ${d.ovr?'checked':''}> Manager override…</label>${d.ovr?`<textarea id="ovrTxt" rows="2" style="width:100%" placeholder="Reason (min 10 characters)">${E(d.txt)}</textarea>`:''}`):'')
  +sec('Active dispatches on '+id,act.length?act.map(t=>`<div>${E(t.act)} · ${E(t.worker)} · ${E(t.status)}</div>`).join(''):'<div class="mut">No task is assigned or running on this bed.</div>')
- +`<div class="row" style="margin-top:8px"><button class="p" data-act="dispatch">Dispatch selected tasks (${d.a.length})</button>${isPH(i)&&can('verifyBed')?`<button class="p" data-act="verify" ${left.length&&!d.ovr?'disabled':''}>Verify Bed Ready &amp; Release to Available</button>`:''}</div>${left.length&&isPH(i)?`<div class="mut">${left.length} required step${left.length>1?'s':''} still to complete.</div>`:''}${mgr?'<div class="row" style="margin-top:8px"><button data-act="modBed">Modify Bed</button></div>':''}<p class="mut">Bed Profile comes from BED_MASTER and always renders, whether or not this bed currently has a plan, cohort, session or history.</p>`}
+ +`<div class="row" style="margin-top:8px"><button class="p" data-act="dispatch">Dispatch selected tasks (${d.a.length})</button>${isPH(i)&&can('verifyBed')?`<button class="p" data-act="verify" ${canRelease(i)?'':'disabled'}>Verify Bed Ready &amp; Release to Available</button>`:''}</div>${isPH(i)&&!canRelease(i)?`<div class="mut">Bed stays locked (not available) until all ${i.bed.turn?i.bed.turn.total:req.length} turnover steps are complete and the final inspection is PASS${i.bed.turn?' — '+i.bed.turn.remaining+' remaining':''}.</div>`:''}${mgr?'<div class="row" style="margin-top:8px"><button data-act="modBed">Modify Bed</button></div>':''}<p class="mut">Bed Profile comes from BED_MASTER and always renders, whether or not this bed currently has a plan, cohort, session or history.</p>`}
 function queueHTML(){if(!can('approve'))return'<p class="mut">Queue approvals are for Manager / Founder logins.</p>';const P=db.proposals.filter(p=>p.status==='PENDING');if(!P.length)return'<p class="mut">No pending proposals.</p>';
  return`<div class="row"><button class="p" data-act="approveSel">Approve selected</button><button data-act="selAll">Select all</button></div>`+P.map(p=>{const cands=Object.keys(db.beds).filter(b=>isFree(b)||b===p.bed);
   return`<div class="item"><label><input type="checkbox" class="pChk" value="${p.id}" ${ui.checked[p.id]?'checked':''}> <b>${p.cohort}</b></label><div class="mut">${CROPS[p.crop]?CROPS[p.crop][0]:p.crop} · ${p.cases} cases</div><div class="row" style="margin-top:6px"><select data-act="cand" data-id="${p.id}">${cands.map(b=>`<option ${b===p.bed?'selected':''}>${b}</option>`).join('')}</select><button class="p" data-act="approve" data-id="${p.id}">Approve</button><button class="d" data-act="reject" data-id="${p.id}">Reject…</button></div></div>`}).join('')}
@@ -188,7 +199,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(
  else if(a==='task')act('taskAction',{id,op:t.dataset.op});
  else if(a==='reassign')modal('Reassign task',`<select id="mW">${WORKERS.map(w=>`<option>${w}</option>`).join('')}</select>`,()=>{act('taskAction',{id,op:'reassign',worker:$('#mW').value},'Reassigned')});
  else if(a==='resolve')modal('Resolve exception','<textarea id="mN" rows="3" style="width:100%" placeholder="Resolution note"></textarea>',()=>{act('resolveException',{id,note:$('#mN').value},'Exception resolved')});
- else if(a==='verify')act('verifyBed',{bed:ui.sel},'Bed released to AVAILABLE');
+ else if(a==='verify')act('verifyBed',{bed:ui.sel},'Bed released');
  else if(a==='approve')act('approve',{ids:[id]},'Approved');
  else if(a==='approveSel'){const ids=[...document.querySelectorAll('.pChk:checked')].map(c=>c.value);if(!ids.length)return toast('Select proposals first');act('approve',{ids},`Approved ${ids.length}`)}
  else if(a==='selAll'){db.proposals.filter(p=>p.status==='PENDING').forEach(p=>ui.checked[p.id]=true);render()}
