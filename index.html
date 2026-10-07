@@ -29,17 +29,22 @@ svg{width:100%;height:auto;display:block}.bed{cursor:pointer;stroke:var(--line);
 #login{position:fixed;inset:0;background:var(--bg);display:none;align-items:center;justify-content:center;z-index:30;padding:16px}#login .card{width:min(360px,100%)}#login select,#login input{width:100%;margin-bottom:8px;font-size:16px}#login .err{color:var(--warn);font-size:12px;min-height:16px;margin-bottom:6px}
 #modal .card.wide{width:min(720px,100%);max-height:80vh;overflow:auto}table.lg{width:100%;border-collapse:collapse;font-size:11px}table.lg td,table.lg th{border-bottom:1px solid var(--line);padding:3px 4px;text-align:left;vertical-align:top}
 .stg{display:flex;gap:2px;margin:6px 0 4px}.stg div{flex:1 1 0;min-width:58px;padding:6px;border-radius:6px;font-size:11px;line-height:1.25}.stg b{display:block;font-size:14px}.stg .hv{background:var(--card);border:1px dashed var(--acc)}.stg-skip{color:var(--mut);font-size:12px;margin:4px 0}
+#planPage{position:fixed;inset:0;background:var(--bg);overflow:auto;z-index:12;display:none;padding-top:env(safe-area-inset-top,0px)}
+.cp{display:grid;grid-template-columns:300px minmax(0,1fr);gap:12px;padding:12px;align-items:start}#cpList{max-height:calc(100vh - 210px);overflow:auto;margin-top:8px}
+@media(max-width:820px){.cp{grid-template-columns:1fr}#cpList{max-height:34vh}}
+.cpi{display:flex;gap:6px;align-items:center;width:100%;text-align:left;margin:2px 0}.cpi>span:first-child{flex:1}.cpi .chip{background:var(--q-att);color:#1d2a1f}
 </style></head><body>
 <header>
 <h1>ranch-ht-aab<small>VPOS-HT · Activity Assignment Board · 6 bays × 6 beds</small></h1>
 <span id="net" class="pill none" data-act="net" style="cursor:pointer">○ Not connected</span><button id="rf" data-act="refresh" title="Refresh now"><span id="rfi">⟳</span></button><select id="auto" data-act="auto" title="Auto-refresh"><option value="0">Auto: off</option><option value="15">Auto: 15 s</option><option value="30">Auto: 30 s</option><option value="60">Auto: 1 min</option><option value="300">Auto: 5 min</option></select>
 <button id="vStage" class="on" data-act="view" data-v="stage">Current Stage</button><button id="vQueue" data-act="view" data-v="queue">Queue</button>
-<button data-act="plan">Season Planning</button><button data-act="theme" title="Toggle theme">◐</button><button data-act="connect" title="Backend connection">⚙</button><button id="bLog" data-act="loglog" title="Login log" style="display:none">🔐</button><span id="who" class="pill online" style="display:none"></span><button id="bOut" data-act="logout" style="display:none">Logout</button>
+<button data-act="plan">Season Planning</button><button data-act="cropsPage">Crops</button><button data-act="theme" title="Toggle theme">◐</button><button data-act="connect" title="Backend connection">⚙</button><button id="bLog" data-act="loglog" title="Login log" style="display:none">🔐</button><span id="who" class="pill online" style="display:none"></span><button id="bOut" data-act="logout" style="display:none">Logout</button>
 </header>
 <main>
 <section class="card"><div class="row" id="filters"></div><svg id="map" viewBox="0 0 440 380" role="img" aria-label="High tunnel bed map"></svg><div class="legend" id="legend"></div></section>
-<section class="card"><div class="tabs"><button data-act="side" data-s="bed">Bed</button><button data-act="side" data-s="queue" id="qTab">Assignment Queue</button><button data-act="side" data-s="crew" id="cTab">Crews</button><button data-act="side" data-s="plan">Planning</button><button data-act="side" data-s="crops">Crops</button></div><div id="side"></div></section>
+<section class="card"><div class="tabs"><button data-act="side" data-s="bed">Bed</button><button data-act="side" data-s="queue" id="qTab">Assignment Queue</button><button data-act="side" data-s="crew" id="cTab">Crews</button><button data-act="side" data-s="plan">Planning</button></div><div id="side"></div></section>
 </main>
+<div id="planPage"></div>
 <div id="login"><div class="card"><b style="font-size:16px">ranch-ht-aab</b><div class="mut" style="margin:2px 0 12px">Sign in to the Activity Assignment Board</div><div id="lBody"></div></div></div>
 <div id="toast"></div><div id="modal"><div class="card" id="mbody"></div></div>
 <script>
@@ -103,7 +108,7 @@ async function doLogin(){if(LBUSY)return;const id=$('#lUser')&&$('#lUser').value
  LBUSY=true;LERR='';renderLogin();
  try{const r=await api('login',{userId:id,pin,ua:navigator.userAgent.slice(0,160)},{soft:true});SESS=r.session;try{localStorage.setItem('aab-sess',SESS);localStorage.setItem('aab-last',id)}catch(e){}LBUSY=false;hideLogin();applyData(r.data);toast('Welcome, '+r.user.name)}
  catch(e){LBUSY=false;LERR=e.message;renderLogin()}}
-function endSession(msg){SESS='';ME=null;loaded=false;db={beds:{},cohorts:[],tasks:[],exceptions:[],proposals:[],plans:[]};live={open:[],done:[]};ui.sel=null;try{localStorage.removeItem('aab-sess')}catch(e){}$('#modal').style.display='none';renderWho();render();showLogin(msg)}
+function endSession(msg){SESS='';ME=null;loaded=false;db={beds:{},cohorts:[],tasks:[],exceptions:[],proposals:[],plans:[]};live={open:[],done:[]};ui.sel=null;ui.page='';try{localStorage.removeItem('aab-sess')}catch(e){}$('#modal').style.display='none';renderWho();render();showLogin(msg)}
 async function logout(){try{await api('logout',{},{soft:true})}catch(e){}endSession('Signed out')}
 async function showLog(){try{const r=await api('getLoginLog',{},{soft:true});modal('Login log (latest '+r.log.length+')',`<table class="lg"><tr><th>Time</th><th>User</th><th>Event</th><th>Detail</th></tr>${r.log.map(x=>`<tr><td>${esc(x.at)}</td><td>${esc(x.name||x.id)}</td><td>${esc(x.event)}</td><td>${esc(x.detail)}${x.client?` <span class="mut">${esc(String(x.client).slice(0,40))}</span>`:''}</td></tr>`).join('')}</table>`,()=>true,true)}catch(e){toast(e.message)}}
 // ---- derived bed info
@@ -113,7 +118,7 @@ function info(id){const bed=db.beds[id]||{id,status:'UNKNOWN'},c=cohortOn(id),ex
  return{bed,c,ex,tk,pr,stage,q,avail:isAvail(id),why:availWhy(id)}}
 const FILTERS={ALL:()=>true,OCCUPIED:i=>i.c&&i.stage!=='COMPLETED',PROPOSED:i=>!!i.pr,AVAILABLE:i=>i.avail&&!i.pr,UNVERIFIED:i=>i.c&&['PENDING','FAIL'].includes(i.c.vest),POST_HARVEST:i=>['COMPLETED','POST_HARVEST','TURNOVER'].includes(i.stage),EXCEPTION:i=>i.ex.length>0};
 // ---- render
-function render(){if(!db)return;renderFilters();renderMap();renderSide();$('#vStage').classList.toggle('on',ui.view==='stage');$('#vQueue').classList.toggle('on',ui.view==='queue');
+function render(){if(!db)return;renderFilters();renderMap();renderSide();renderPage();$('#vStage').classList.toggle('on',ui.view==='stage');$('#vQueue').classList.toggle('on',ui.view==='queue');
  const n=db.proposals.filter(p=>p.status==='PENDING').length;$('#qTab').textContent='Assignment Queue'+(n?` (${n})`:'');const w=can('verifyTask')?crewGroups(g=>g.status==='DONE'&&!g.vBy).length:0;$('#cTab').textContent='Crews'+(w?` (${w})`:'')}
 function renderFilters(){$('#filters').innerHTML=Object.keys(FILTERS).map(f=>`<button class="${ui.filter===f?'on':''}" data-act="filter" data-f="${f}">${f.replace('_',' ')}</button>`).join('')}
 function renderMap(){let s='';
@@ -224,7 +229,7 @@ let ED=null;
 const CVIEWS=[['profile','Crop profile'],['reference','Crop reference'],['lifecycle','Crop lifecycle']],inView=(f,v)=>v==='profile'||(v==='reference'&&f.sheet==='Crop_Reference')||(v==='lifecycle'&&f.sheet==='CROP_LIFECYCLE');
 const CNOTE={profile:'The whole crop in one place. Each field says which tab it is stored in; one Save updates every tab that changed. A • marks unsaved edits.',reference:'Only the fields stored in CROP_REFERENCE. The crop ID is not editable here. A • marks unsaved edits.',lifecycle:'Only the fields stored in CROP_LIFECYCLE. Days to first harvest, planting method, DOB type and cycle class mirror CROP_REFERENCE; change them there. A • marks unsaved edits.'};
 const cropViews=()=>`<div class="tabs">${CVIEWS.map(v=>`<button class="${(ui.cropView||'profile')===v[0]?'on':''}" data-act="cropView" data-id="${v[0]}">${v[1]}</button>`).join('')}</div>`;
-const cropHead=(L,c)=>`<div class="row"><select data-act="cropSel" aria-label="Crop" style="flex:1">${L.map(x=>`<option value="${E(x.id)}" ${x.id===c.id?'selected':''}>${E(x.name)} (${E(x.id)})</option>`).join('')}</select>${can('cropSave')?'<button data-act="cropEditBtn">Edit crop</button>':''}</div>${cropViews()}`;
+const cropHead=(L,c)=>ui.page==='plan'?`<div class="row"><b style="font-size:18px;flex:1">${E(c.name)} <span class="chip" style="background:var(--s-avail)">${E(c.id)}</span></b>${can('cropSave')?'<button class="p" data-act="cropEditBtn">Edit crop</button>':''}</div>${cropViews()}`:`<div class="row"><select data-act="cropSel" aria-label="Crop" style="flex:1">${L.map(x=>`<option value="${E(x.id)}" ${x.id===c.id?'selected':''}>${E(x.name)} (${E(x.id)})</option>`).join('')}</select>${can('cropSave')?'<button data-act="cropEditBtn">Edit crop</button>':''}</div>${cropViews()}`;
 function cropRaw(c){const S=(db.cropSchema||[]).filter(f=>inView(f,ui.cropView));if(!S.length)return'<p class="mut">Redeploy Code_HT.gs to load these tabs.</p>';let h='',last='';
  S.forEach(f=>{if(f.sec!==last){h+=(last?'</dl></div>':'')+`<div class="item"><b>${E(f.sec)}</b><dl class="grid2" style="margin-top:6px">`;last=f.sec}const v=c.raw?c.raw[f.key]:null;
   h+=`<div${f.wide?' style="grid-column:1/-1"':''}><dt>${E(f.label)} · ${E(f.sheet.toUpperCase())}.${E(f.col)}</dt>${v==null?'<dd class="mut" style="font-weight:400">Column not in workbook yet</dd>':v===''?'<dd class="mut" style="font-weight:400">Blank</dd>':`<dd>${E(v)}</dd>`}</div>`});
@@ -244,7 +249,20 @@ function cropEditDlg(){const c=(db.crops||[]).find(x=>x.id===ui.crop);if(!c||!db
  ED={id:c.id,tab:ui.cropView||'profile',vals:{},orig:Object.assign({},c.raw)};
  modal('Edit crop '+E(c.id)+' · '+E(c.name),'<div class="mut" id="ceNote" style="margin-bottom:8px"></div><div class="tabs" id="ceTabs"></div><div id="ceBody"></div>',()=>{ceSave();return false},true);
  $('#mNo').onclick=()=>{if(!Object.keys(ED.vals).length||confirm('Discard unsaved edits?'))$('#modal').style.display='none'};ceRender()}
-function goPlanning(){ui.side='plan';render()}
+// ---- Season Planning page (full screen): Season Planning + Crop Profile (searchable crop list grouped by category, profile on the right)
+function openPlan(t){ui.page='plan';ui.pTab=t||'season';renderPage()}
+function closePlan(){ui.page='';renderPage()}
+const cropList=()=>db.crops&&db.crops.length?db.crops:Object.keys(FAM).map(id=>({id,name:(CROPS[id]||[id])[0],cat:FAM[id],irr:[],raw:{},limited:true}));
+const cropGap=c=>!c.limited&&(!c.hWin||c.germ==null||((c.raw||{})['CROP_LIFECYCLE.Lifecycle_Status']||'COMPLETE')!=='COMPLETE');
+function cpListHTML(){const q=(ui.cpq||'').trim().toLowerCase(),G={};cropList().filter(c=>!q||(c.name+' '+c.id+' '+c.cat).toLowerCase().includes(q)).forEach(c=>{const k=c.cat||'Uncategorized';(G[k]=G[k]||[]).push(c)});
+ return Object.keys(G).sort().map(k=>`<div class="mut" style="margin:10px 0 4px;font-weight:600">${E(k)}</div>`+G[k].map(c=>`<button class="cpi ${c.id===ui.crop?'on':''}" data-act="cpPick" data-id="${E(c.id)}"><span>${E(c.name)}</span><span class="mut" style="color:inherit;opacity:.7">${E(c.id)}</span>${cropGap(c)?'<span class="chip">Lifecycle gap</span>':''}</button>`).join('')).join('')||'<div class="mut">No crops match.</div>'}
+function renderPage(){const p=$('#planPage');if(!p)return;if(ui.page!=='plan'){p.style.display='none';return}
+ if(!ui.crop){const L=cropList();ui.crop=(L[0]||{}).id}const y=p.scrollTop,lt=($('#cpList')||{}).scrollTop||0,t=ui.pTab||'season';p.style.display='block';
+ p.innerHTML=`<header><h1>Season Planning<small>${ME?E(ME.name+' · '+ME.role):''}</small></h1><button data-act="planClose">← Daily board</button><button data-act="logout">Log out</button></header>
+ <div class="tabs" style="padding:10px 12px 0;margin:0">${[['season','Season Planning'],['crop','Crop Profile']].map(x=>`<button class="${t===x[0]?'on':''}" data-act="pTab" data-id="${x[0]}">${x[1]}</button>`).join('')}</div>`
+ +(t==='crop'?`<div class="cp"><aside class="card"><input id="cpQ" type="search" placeholder="Search crops…" value="${E(ui.cpq||'')}" style="width:100%"><div id="cpList">${cpListHTML()}</div></aside><section class="card">${loaded?cropsHTML():'<p class="mut">Loading…</p>'}</section></div>`:`<div class="card" style="margin:12px">${planHTML()}</div>`);
+ p.scrollTop=y;if($('#cpList'))$('#cpList').scrollTop=lt}
+function goPlanning(){openPlan('season')}
 // ---- modal
 function modal(title,html,ok,wide){const m=$('#modal');$('#mbody').className='card'+(wide?' wide':'');$('#mbody').innerHTML=`<b>${title}</b><div style="margin:10px 0">${html}</div><div class="row"><button class="p" id="mOk">OK</button><button id="mNo">Cancel</button></div>`;m.style.display='flex';$('#mNo').onclick=()=>m.style.display='none';$('#mOk').onclick=()=>{if(ok()!==false)m.style.display='none'}}
 function connectDlg(){modal('Backend connection',HAS_GSR?'<p class="mut">Served by Apps Script: connected through google.script.run, no URL needed. Sign in with your PIN.</p>':`<p class="mut">Paste your Apps Script web-app URL (/exec). Stored in this browser only. Deploy it with "Who has access: Anyone" — the PIN login protects it.</p><input id="cU" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%" value="${esc(WEB_APP_URL)}">`,()=>{if(!HAS_GSR){try{localStorage.setItem('aab-url',$('#cU').value.trim())}catch(e){}location.reload()}})}
@@ -252,7 +270,7 @@ function connectDlg(){modal('Backend connection',HAS_GSR?'<p class="mut">Served 
 document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t||t.tagName==='SELECT')return;const a=t.dataset.act,id=t.dataset.id;
  if(a==='view'){ui.view=t.dataset.v;render()}else if(a==='filter'){ui.filter=t.dataset.f;render()}else if(a==='plan')goPlanning();
  else if(a==='doLogin')doLogin();else if(a==='logout')logout();else if(a==='loglog')showLog();else if(a==='connect')connectDlg();else if(a==='refresh')loadToday();else if(a==='net'){syncSt.state==='none'?connectDlg():ME?loadToday():showLogin('')}else if(a==='theme'){const r=document.documentElement,d=r.dataset.theme==='dark'||(!r.dataset.theme&&matchMedia('(prefers-color-scheme:dark)').matches);r.dataset.theme=d?'light':'dark'}
- else if(a==='cropGo'){ui.crop=id;ui.side='crops';render()}else if(a==='cropEditBtn')cropEditDlg();else if(a==='cropView'){ui.cropView=id;renderSide()}else if(a==='ceTab'){ED.tab=id;ceRender()}else if(a==='bed'){ui.sel=id;ui.side='bed';ui.tab=ui.tab||'overview';render()}else if(a==='side'){ui.side=t.dataset.s;render()}else if(a==='tab'){ui.tab=t.dataset.t;render()}
+ else if(a==='cropGo'){ui.crop=id;openPlan('crop')}else if(a==='cropsPage')openPlan('crop');else if(a==='planClose')closePlan();else if(a==='pTab'){ui.pTab=id;renderPage()}else if(a==='cpPick'){ui.crop=id;ui.cropView='profile';renderPage()}else if(a==='cropEditBtn')cropEditDlg();else if(a==='cropView'){ui.cropView=id;renderSide()}else if(a==='ceTab'){ED.tab=id;ceRender()}else if(a==='bed'){ui.sel=id;ui.side='bed';ui.tab=ui.tab||'overview';render()}else if(a==='side'){ui.side=t.dataset.s;render()}else if(a==='tab'){ui.tab=t.dataset.t;render()}
  else if(a==='wk'){const s=ui.dsp.w,k=t.dataset.id;ui.dsp.w=s.includes(k)?s.filter(x=>x!==k):[...s,k];renderSide()}
  else if(a==='wkAll'){ui.dsp.w=[...WORKERS];renderSide()}else if(a==='wkClr'){ui.dsp.w=[];renderSide()}
  else if(a==='actTog'){const d=ui.dsp;if(d.a.includes(id)){d.a=d.a.filter(x=>x!==id);delete d.cust[id]}else d.a=[...d.a,id];renderSide()}
@@ -277,7 +295,7 @@ document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(
  else if(a==='selAll'){db.proposals.filter(p=>p.status==='PENDING').forEach(p=>ui.checked[p.id]=true);render()}
  else if(a==='reject')modal('Reject proposal','<textarea id="mR" rows="3" style="width:100%" placeholder="Reason (required)"></textarea>',()=>{const r=$('#mR').value.trim();if(!r){toast('Reason required');return false}act('reject',{id,reason:r},'Rejected')})});
 document.addEventListener('change',e=>{const t=e.target;if(t.dataset.act==='cropSel'){ui.crop=t.value;renderSide();return}if(t.dataset.act==='addAct'&&t.value){ui.dsp.a.push(t.value);renderSide();return}if(t.dataset.act==='auto')setAuto(+t.value);if(t.dataset.act==='cand')act('changeBed',{id:t.dataset.id,bed:t.value},'Bed changed');if(t.classList.contains('pChk'))ui.checked[t.value]=t.checked});
-document.addEventListener('input',e=>{if(e.target.dataset.ck&&ED){ceSet(e.target);return}if(e.target.id==='dQ'){ui.dsp.q=e.target.value;const L=$('#actList');if(L)L.innerHTML=actListHTML();return}if(e.target.id==='ovrTxt')ui.dsp.txt=e.target.value;if(e.target.id==='dDate'&&e.target.value)ui.dsp.date=e.target.value});
+document.addEventListener('input',e=>{if(e.target.id==='cpQ'){ui.cpq=e.target.value;$('#cpList').innerHTML=cpListHTML();return}if(e.target.dataset.ck&&ED){ceSet(e.target);return}if(e.target.id==='dQ'){ui.dsp.q=e.target.value;const L=$('#actList');if(L)L.innerHTML=actListHTML();return}if(e.target.id==='ovrTxt')ui.dsp.txt=e.target.value;if(e.target.id==='dDate'&&e.target.value)ui.dsp.date=e.target.value});
 addEventListener('online',()=>{if(ME)loadToday()});document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='lPin')doLogin()});addEventListener('offline',()=>setStatus('offline'));
 document.addEventListener('visibilitychange',()=>{if(ME&&!document.hidden)loadToday()});setInterval(renderPill,5000);
 addEventListener('error',e=>{const t=$('#toast');t.textContent='Script error: '+e.message+(e.lineno?' (line '+e.lineno+')':'');t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',12000)});addEventListener('unhandledrejection',e=>toast('Error: '+((e.reason&&e.reason.message)||e.reason)));
